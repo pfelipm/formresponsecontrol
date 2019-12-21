@@ -11,5 +11,5 @@ Estas funciones pueden activarse o desactivarse de modo independiente. El proces
 
 FRC se distribuye bajo licencia CC-BY-NC-SA. Puedes acceder al código fuente en este repositorio. También puedes consultar la página de soporte del complemento aquí: https://tictools.tk/formresponsecontrol.
 
-Pablo Felip Monferrer
+Pablo Felip Monferrer<BR>
 @pfelipm
