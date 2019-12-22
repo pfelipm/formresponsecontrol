@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons1.css">
+      <!-- Un poco más de CSS -->
+      <style>
+        
+        .branding-below {
+         bottom: 40px;
+         top: 0;
+        }
+      
+      .agrupado {
+        background-color: #eee;
+        border-color: #eee;
+        border-width: 5px;
+        border-style: solid;
+      }
+      
+        /* Interruptor, tomado de https://www.w3schools.com/howto/howto_css_switch.asp */
+        .switch {
+          position: relative;
+          display: inline-block;
+          width: 60px;
+          height: 34px;
+        }
+        
+        /* Hide default HTML checkbox */
+        .switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        
+        /* The slider */
+        .slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: #ccc;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+        
+        .slider:before {
+          position: absolute;
+          content: "";
+          height: 26px;
+          width: 26px;
+          left: 4px;
+          bottom: 4px;
+          background-color: white;
+          -webkit-transition: .4s;
+          transition: .4s;
+        }
+        
+        input:checked + .slider {
+          background-color: #2196F3;
+        }
+        
+        input:focus + .slider {
+          box-shadow: 0 0 1px #2196F3;
+        }
+        
+        input:checked + .slider:before {
+          -webkit-transform: translateX(26px);
+          -ms-transform: translateX(26px);
+          transform: translateX(26px);
+        }
+        
+        /* Rounded sliders */
+        .slider.round {
+          border-radius: 34px;
+        }
+        
+        .slider.round:before {
+          border-radius: 50%;
+        }                  
+       </style>     
+  </head>
+
+  <body onload="inicio()">
+    <div class="sidebar branding-below">
+      <div class="block" id="interruptor" style="visibility: hidden; text-align: center;">
+        <!-- Rounded switch -->
+        <label class="switch">
+          <input type="checkbox" id="chk_interruptor" onclick="conmutarEstado()">
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <p>Escoge las operaciones que se realizarán al recibir una <b>nueva respuesta</b> en el formulario
+      y activa / desactiva FRC usando el interruptor general.</p>
+      <div class="block form-group agrupado" id="opciones" style="visibility: hidden">
+        <div>Fila modelo
+        <input type="number" id="nbr_fila" name="fila" min="2" max="99" value="2" step="1" style="max-width: 3.5em;" onclick="activarBotonGuardar()" onKeyDown="return false"></div>
+        <hr>
+        <div><input type="checkbox" id="chk_autoFormato" name="autoFormato" onclick="activarBotonGuardar()">
+        <label for="chk_autoFormato">Copiar formato de fila modelo</label></div>
+        <div><input type="checkbox" id="chk_autoFormula" name="autoFormula" onclick="activarBotonGuardar()">
+        <label for="chk_autoFormula">Copiar fórmulas de fila modelo</label></div>
+        <div><input type="checkbox" id="chk_autoValidacion" name="autoValidacion" onclick="activarBotonGuardar()">
+        <label for="chk_autoValidacion">Copiar validación de fila modelo</label></div>
+        <div><input type="checkbox" id="chk_autoInversion" name="autoInversion" onclick="activarBotonGuardar()">
+        <label for="chk_autoInversion">Última respuesta primero</label></div>
+        <hr>
+        <div><input type="checkbox" id="chk_reprocesar" name="reprocesar" onclick="activarBotonGuardar()">
+        <label for="chk_reprocesar">Reprocesar ya recibidas (solo al copiar)</label></div>
+      </div>
+      <div class="block" id="boton" style="visibility: hidden"><input type="button" disabled value="Guardar" class="action" ID="btn_guardar" onclick="guardarPreferencias()">
+      <span id="mensaje" style="visibility: hidden; color:blue;">¡Ajustes guardados!</span>
+      </div>
+      <p style="text-align: center; color: red">¡No edites las filas situadas por debajo de las respuestas ni filtres su hoja de datos!</p>
+    </div>
+    <!-- Parte inferior del panel -->
+    <div class="sidebar bottom">
+      <span class="gray">FRC v2 · CC BY-NC-SA Pablo Felip (<a href="https://twitter.com/pfelipm">@pfelipm</a>)</span>
+    </div>
+ </body>
+
+  <script>
+    function inicio() {
+    
+      // Obtener ajustes actuales
+      google.script.run.withSuccessHandler(mostrarPreferencias).obtenerPreferencias();     
+    }    
+    
+    function activarBotonGuardar() {
+      
+      // Activar el botón de guardar en cuanto se modifica algún ajustes
+      document.getElementById('btn_guardar').disabled = false;
+        
+      // Desactivar mensaje de estado
+      document.getElementById('mensaje').style.visibility = 'hidden';
+
+    }
+    
+    function mostrarPreferencias(preferencias) {
+    
+      // Ajustar las casillas de verificación y fila modelo de acuerdo
+      // con los valores almacenados
+     
+      document.getElementById('nbr_fila').value = JSON.parse(preferencias.fila);
+      document.getElementById('chk_autoFormato').checked = JSON.parse(preferencias.autoFormato);
+      document.getElementById('chk_autoFormula').checked = JSON.parse(preferencias.autoFormula);
+      document.getElementById('chk_autoInversion').checked = JSON.parse(preferencias.autoInversion);
+      document.getElementById('chk_autoValidacion').checked = JSON.parse(preferencias.autoValidacion);
+      document.getElementById('chk_reprocesar').checked = JSON.parse(preferencias.reprocesar);
+
+     if (preferencias['triggerDe'] == '' || preferencias['triggerDe'] == null) {
+        document.getElementById('chk_interruptor').checked = false;}
+      else {
+        document.getElementById('chk_interruptor').checked = true;}
+   
+      // Ahora se muestran las preferencias y controles
+      document.getElementById('opciones').style.visibility = 'visible';
+      document.getElementById('boton').style.visibility = 'visible';
+      document.getElementById('interruptor').style.visibility = 'visible';
+    }
+    
+    function conmutarEstado(){
+  
+      // Se invocan las funciones GAS correspondientes
+      var estado;
+      
+      // Desactivamos interruptor para prevenir posible clic doble
+      document.getElementById('chk_interruptor').disabled = true;
+      
+      // Versión para panel HTML modal (actual)
+      if (document.getElementById('chk_interruptor').checked == true) {
+        google.script.run.modificarEstadoFrc('activar');}
+      else {
+       google.script.run.modificarEstadoFrc('desactivar');}
+    }
+  
+    function guardarPreferencias(){
+        
+      var preferencias = [];
+     
+      // Recuperar estado casillas de verificación en array de objetos {clave, valor}
+      preferencias.push({clave:document.getElementById('nbr_fila').name, valor:document.getElementById('nbr_fila').value});
+      preferencias.push({clave:document.getElementById('chk_autoFormato').name, valor:document.getElementById('chk_autoFormato').checked});
+      preferencias.push({clave:document.getElementById('chk_autoFormula').name, valor:document.getElementById('chk_autoFormula').checked});
+      preferencias.push({clave:document.getElementById('chk_autoInversion').name, valor:document.getElementById('chk_autoInversion').checked});
+      preferencias.push({clave:document.getElementById('chk_autoValidacion').name, valor:document.getElementById('chk_autoValidacion').checked});
+      preferencias.push({clave:document.getElementById('chk_reprocesar').name, valor:document.getElementById('chk_reprocesar').checked});
+
+      // Llamada a GAS para actualizar preferencias en propiedades
+      google.script.run.withSuccessHandler(desactivarBoton).actualizarPreferencias(preferencias);
+    }
+    
+    function desactivarBoton(){
+
+      // Cambios guardados, desactivar botón (hasta que usuario cambie ajustes)
+      document.getElementById('btn_guardar').disabled = true;
+      
+      // Mostrar mensaje de confirmación
+      document.getElementById('mensaje').style.visibility = 'visible';
+
+    }
+
+  </script>
+</html>
