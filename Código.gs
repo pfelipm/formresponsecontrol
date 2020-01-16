@@ -1,8 +1,12 @@
-// Ámbito de autorización
 /**
  * @OnlyCurrentDoc
+ *
+ * Form Response Control (versión complemento) 
+ * Versión 2.1 (enero 2020) · Copyright (C) 2020 Pablo Felip (@pfelipm) · Se distribuye bajo licencia GNU GPL v3.
+ *
  */
-
+ 
+var VERSION = 'Versión: 2.1 (enero 2020)';
 
 function onInstall(e) {
   
@@ -21,6 +25,7 @@ function onOpen() {
     .addItem('⬇️ Forzar copia de fórmulas', 'formulasForzado')
     .addItem('⬇️ Forzar copia de validación', 'validacionForzado')
     .addSeparator()
+    .addItem('️👓 Diagnosticar FRC', 'diagnosticar')
     .addItem('⚠️ Restaurar FRC', 'restaurar')
     .addSeparator()
     .addItem('💡 Sobre FRC', 'acercaDe') 
@@ -30,10 +35,129 @@ function onOpen() {
 function acercaDe() {
 
   // Presentación del complemento
-  var panel = HtmlService.createHtmlOutputFromFile('acercaDe')
-    .setWidth(420)
-    .setHeight(220)
-  SpreadsheetApp.getUi().showModalDialog(panel, '💡 ¿Qué es FRC?');
+  var panel = HtmlService.createTemplateFromFile('acercaDe');
+  panel.version = VERSION;
+  SpreadsheetApp.getUi().showModalDialog(panel.evaluate().setWidth(420).setHeight(220), '💡 ¿Qué es FRC?')
+}
+
+/**
+ * Función auxiliar invocada por diagnosticar(), restaurar()
+ * @param {cadena} comando 'diagnosticar' | 'eliminar'
+ * @return {objeto}        {msg: mensaje_de_salida, error: TRUE | FALSE}        
+ */
+
+function procesarTriggers(comando) {
+
+  var mensaje = '',
+      errorB = false,
+      hdcId = SpreadsheetApp.getActiveSpreadsheet();      
+  
+  try {
+  
+    if (comando == 'eliminar') {
+    
+      // Identificar y eliminar todos los activadores ON_FORM_SUBMIT del usuario en hdc actual
+      
+      ScriptApp.getUserTriggers(hdcId).filter(function(t){
+            
+        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
+            
+      }).map(function(t){    
+          
+        if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
+          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
+          
+      });
+              
+    }
+    
+    else { // diagnosticar
+    
+      // Identificar todos los activadores ON_FORM_SUBMIT asociados a FRC activados por el usuario en cualquier hdc
+    
+      ScriptApp.getProjectTriggers().filter(function(t){
+        
+        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
+        
+      }).map(function(t){    
+      
+          if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
+          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
+      });
+        
+    } 
+  
+    if (!mensaje) { mensaje = '---';}
+  
+  }
+  
+  catch (e) {
+    mensaje = e;
+    errorB = true;}
+   
+  return {msg: mensaje, error: errorB};
+  
+}
+
+function diagnosticar() {
+
+  // Identifica los activadores activos
+    
+  var resultado,
+      mensaje = VERSION + '.\n Tus activadores FRC detectados en todas tus hojas de cálculo (ID / hdc):\n';
+
+  resultado = procesarTriggers('diagnosticar');
+  
+  if (resultado.error) {
+    SpreadsheetApp.getUi().alert('❌ ¡Error!','Se han producido errores al realizar diagnóstico.\n\n' + resultado.msg,SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+  else {
+    SpreadsheetApp.getUi().alert('👓 Info de diagnóstico', mensaje + resultado.msg, SpreadsheetApp.getUi().ButtonSet.OK);
+  }
+
+}
+
+function restaurar() {
+
+   var resultado,
+   mensaje = 'Activadores FRC eliminados en esta hoja de cálculo (ID / hdc):\n';
+      
+  // ¿Seguimos?
+  if (SpreadsheetApp.getUi().alert('¿Deseas restaurar FRC?',
+    '¡PRECAUCIÓN!\n\n' +
+    'Esta función *solo* debe utilizarse si el complemento se comporta de modo\n' +
+    'errático al procesar en segundo plano las respuestas del formulario y/o \n' +
+    'el interruptor del panel de configuración no muestra correctamente su estado \n' +
+    'de activación.\n\n' +
+    '¡Se restaurarán todos los ajustes por defecto y se desactivará FRC ❌!\n\n' +
+    'El procedimiento es más efectivo si TODOS los usuarios con acceso en edición\n' +
+    'al documento utilizan esta función en caso de problemas.'
+    ,SpreadsheetApp.getUi().ButtonSet.OK_CANCEL) == SpreadsheetApp.getUi().Button.OK) {
+    
+    resultado = procesarTriggers('eliminar');
+    
+    if (resultado.error) {
+      SpreadsheetApp.getUi().alert('❌ ¡Error!','Se han producido errores al tratar de restaurar FRC.\n\n' + resultado.msg,SpreadsheetApp.getUi().ButtonSet.OK);
+    }
+    else {
+      SpreadsheetApp.getUi().alert('⚠️ FRC restaurado', mensaje + resultado.msg, SpreadsheetApp.getUi().ButtonSet.OK);
+  
+      // Restaura valores por defecto
+      PropertiesService.getDocumentProperties().setProperties({
+        'fila' : '2',
+        'autoFormato' : 'true',
+        'autoFormula' : 'true',
+        'autoValidacion' : 'true',
+        'autoInversion' : 'false',
+        'reprocesar' : 'false',
+        'triggerDe' : '',
+      }, true);
+      
+      // Este modo de inicialización parece dar más problemas de sincronización
+      /*PropertiesService.getDocumentProperties().deleteAllProperties();
+      configurar();  */      
+    }
+  }
 }
 
 function extenderFormato(filaModelo, filaRespuesta, reprocesar) {
@@ -115,12 +239,15 @@ function extenderFormulas(filaModelo, filaRespuesta, reprocesar) {
   }
 }
 
-function extenderValidacion(filaModelo, filaRespuesta, reprocesar) {
+function extenderValidacion(filaModelo, filaRespuesta, reprocesar, autovalidacion) {
 
   // Copia los ajustes de validación en las celdas de la fila que se pasa como parámetro
   // a todas por debajo de ella (reprocesar = true) o solo a la última (reprocesar = false)
   // filaRespuesta contiene la correspondiente a la respuesta de formulario que se debe
-  // procesar o 0 si se trata de una aplicación manual.
+  // procesar o 0 si se trata de una aplicación manual
+  // Aunque la validación se propaga automáticamente, solo se hace de fila n a fila n+1
+  // (el usuario puede haber desactivado esta opción durante algunas respuestas), 
+  // además, es posible que se deba reaplicar a todas ellas
   
   var sheet = SpreadsheetApp.getActiveSheet();
   var lastRow = sheet.getLastRow();
@@ -128,22 +255,40 @@ function extenderValidacion(filaModelo, filaRespuesta, reprocesar) {
     
   // ¿Hay respuestas?
   if (lastRow > filaModelo) {
+  
+    if (autovalidacion) {
     
-    // ¿En todas las filas o solo la última?
-    if (reprocesar == true) {
-        
-      // Aplicar en todas las filas por debajo
-      // Si se trata de una respuesta previa modificada, mismo tratamiento.
-      sheet.getRange(filaModelo, 1, 1, lastColumn).copyTo(sheet.getRange(filaModelo + 1, 1, lastRow - filaModelo, lastColumn),
-        SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
-    }
-    else {
+      // Aplicar en todas las filas o solo la última?
+      if (reprocesar == true) {
           
-      // Copiar en la fila de la respuesta recibida
-      sheet.getRange(filaModelo, 1, 1, lastColumn).copyTo(sheet.getRange(filaRespuesta, 1),
-        SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
-     }
-   }
+        // Aplicar en todas las filas por debajo
+        // Si se trata de una respuesta previa modificada, mismo tratamiento
+        sheet.getRange(filaModelo, 1, 1, lastColumn).copyTo(sheet.getRange(filaModelo + 1, 1, lastRow - filaModelo, lastColumn),
+          SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+      }
+      else {
+            
+        // Aplicar en la fila de la respuesta recibida
+        sheet.getRange(filaModelo, 1, 1, lastColumn).copyTo(sheet.getRange(filaRespuesta, 1),
+          SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+      }
+    }
+    else { 
+   
+      // Eliminar en todas las filas o solo la última?
+      if (reprocesar == true) {
+          
+        // Eliminar en todas las filas por debajo
+        // Si se trata de una respuesta previa modificada, mismo tratamiento
+        sheet.getRange(filaModelo + 1, 1, lastRow - filaModelo, lastColumn).clearDataValidations();
+      }
+      else {
+            
+        // Eliminar únicamente en la fila de la respuesta recibida
+        sheet.getRange(filaRespuesta, 1, 1, lastColumn).clearDataValidations();
+      }
+    }      
+  }
 }  
 
 function formatoForzado() {
@@ -203,53 +348,6 @@ function validacionForzado() {
     SpreadsheetApp.getActiveSpreadsheet().toast('Validación aplicada.');
 }
 
-function restaurar() {
-
-  // ¿Seguimos?
-  if (SpreadsheetApp.getUi().alert('¿Deseas restaurar FRC?',
-    '¡PRECAUCIÓN!\n\n' +
-    'Esta función *solo* debe utilizarse si el complemento se comporta de modo\n' +
-    'errático al procesar en segundo plano las respuestas del formulario y/o \n' +
-    'el interruptor del panel de configuración no muestra correctamente su estado \n' +
-    'de activación.\n\n' +
-    '¡Se restaurarán todos los ajustes por defecto y se desactivará FRC ❌!\n\n' +
-    'El procedimiento es más efectivo si TODOS los usuarios con acceso en edición\n' +
-    'al documento utilizan esta función en caso de problemas.'
-    ,SpreadsheetApp.getUi().ButtonSet.OK_CANCEL) == SpreadsheetApp.getUi().Button.OK) {
-    
-    // Localizar y eliminar trigger de tipo respuestas de formulario
-    var triggers = ScriptApp.getProjectTriggers();  
-    try {
-      var ntriggers = 0;
-      var triggers = ScriptApp.getProjectTriggers();
-      for (i in triggers) {
-        if (triggers[i].getEventType() == ScriptApp.EventType.ON_FORM_SUBMIT) {
-          ntriggers++;
-          ScriptApp.deleteTrigger(triggers[i]);
-        }
-      }
-    }    
-    catch (e) {SpreadsheetApp.getUi().alert('¡Error!','Se han producido errores al tratar de desactivar FRC.\n\n'+e,SpreadsheetApp.getUi().ButtonSet.OK);}
-    
-    // Restaura valores por defecto
-    PropertiesService.getDocumentProperties().setProperties({
-      'fila' : '2',
-      'autoFormato' : 'true',
-      'autoFormula' : 'true',
-      'autoValidacion' : 'true',
-      'autoInversion' : 'false',
-      'reprocesar' : 'false',
-      'triggerDe' : '',
-    }, true);
-    
-    // Este modo de inicialización parece dar más problemas de sincronización
-    /*PropertiesService.getDocumentProperties().deleteAllProperties();
-    configurar();  */
-    
-    SpreadsheetApp.getUi().alert('FRC restaurado', 'Activadores encontrados: ' + '# ' + ntriggers + ' #', SpreadsheetApp.getUi().ButtonSet.OK);
-  }
-}
-
 function comprobarEstado() {
 
   var triggerDe = PropertiesService.getDocumentProperties().getProperty('triggerDe');
@@ -259,15 +357,6 @@ function comprobarEstado() {
   else {
     SpreadsheetApp.getUi().alert('💡 Form Response Control ha sido activado por:\n\n' + triggerDe); 
   }
-}
-
-function acercaDe() {
-
-  // Presentación del complemento
-  var panel = HtmlService.createHtmlOutputFromFile('acercaDe')
-    .setWidth(420)
-    .setHeight(220)
-  SpreadsheetApp.getUi().showModalDialog(panel, '💡 ¿Qué es FRC?');
 }
 
 function modificarEstadoFrc(comando) {
@@ -495,11 +584,11 @@ function nuevaRespuestaForm(e) {
     var sheet = SpreadsheetApp.getActiveSheet();
     var lastRow = sheet.getLastRow();
     var lastColumn = sheet.getLastColumn();
-    var filaModelo = +PropertiesService.getDocumentProperties().getProperty('fila');
+    var filaModelo = +props.getProperty('fila');
     var filaRespuesta = e.range.getRow();   
     
     // ¿Aplicar tratamiento a todas las respuestas o solo la última?
-    var reprocesar = JSON.parse(PropertiesService.getDocumentProperties().getProperty('reprocesar'));
+    var reprocesar = JSON.parse(props.getProperty('reprocesar'));
    
     // ¿Aplicar formato?
     if (props.getProperty('autoFormato') == 'true') {extenderFormato(filaModelo, filaRespuesta, reprocesar);}
@@ -507,8 +596,8 @@ function nuevaRespuestaForm(e) {
     // ¿Aplicar fórmulas?
     if (props.getProperty('autoFormula') == 'true') {extenderFormulas(filaModelo, filaRespuesta, reprocesar);}
     
-    // ¿Aplicar validación?
-    if (props.getProperty('autoValidacion') == 'true') {extenderValidacion(filaModelo, filaRespuesta, reprocesar);}
+    // Gestionar propagación de reglas de validación (ver comentarios en función)
+    extenderValidacion(filaModelo, filaRespuesta, reprocesar, JSON.parse(props.getProperty('autoValidacion')));
    
     // ¿Última respuesta a la primera posición?
     if (props.getProperty('autoInversion') == 'true') {
