@@ -9,6 +9,6 @@
 </ol>
 <p>Estas funciones pueden activarse o desactivarse de modo independiente. El proceso se realiza según se van recibiendo respuestas, en tiempo real, aunque la hoja de datos no esté abierta.</p>
 
-<p>FRC se distribuye bajo licencia CC-BY-NC-SA. Puedes acceder al código fuente en este repositorio. También puedes consultar la página de soporte del complemento aquí: https://tictools.tk/formresponsecontrol.</p>
+<p>FRC se distribuye bajo licencia GNU GPL v3. Puedes acceder al código fuente en este repositorio. También puedes consultar la página de soporte del complemento aquí: https://tictools.tk/formresponsecontrol.</p>
 
 <p>Pablo Felip Monferrer (<a href="https://twitter.com/pfelipm">@pfelipm</a>)</p>
