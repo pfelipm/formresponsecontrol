@@ -2,22 +2,16 @@
  * @OnlyCurrentDoc
  *
  * Form Response Control (versión complemento) 
- * Versión 2.1 (enero 2020) · Copyright (C) 2020 Pablo Felip (@pfelipm) · Se distribuye bajo licencia GNU GPL v3.
+ * Copyright (C) 2020 Pablo Felip (@pfelipm) · Se distribuye bajo licencia GNU GPL v3.
  *
  */
  
-var VERSION = 'Versión: 2.1 (enero 2020)';
-
-function onInstall(e) {
-  
-  // Otras cosas que se deben hacer siempre
-  onOpen(e);
-}
+var VERSION = 'Versión: 2.1c (enero 2020)';
 
 function onOpen() {
 
   // Crear menú de la aplicación
-  SpreadsheetApp.getUi().createAddonMenu()
+  SpreadsheetApp.getUi().createMenu('Form Response Control')
     .addItem('✅ Configurar', 'configurar')
     .addItem('❔ Comprobar estado', 'comprobarEstado')
     .addSeparator()
@@ -28,7 +22,7 @@ function onOpen() {
     .addItem('️👓 Diagnosticar FRC', 'diagnosticar')
     .addItem('⚠️ Restaurar FRC', 'restaurar')
     .addSeparator()
-    .addItem('💡 Sobre FRC', 'acercaDe') 
+    .addItem('💡 Ayuda', 'acercaDe') 
     .addToUi();
 }
 
@@ -38,6 +32,7 @@ function acercaDe() {
   var panel = HtmlService.createTemplateFromFile('acercaDe');
   panel.version = VERSION;
   SpreadsheetApp.getUi().showModalDialog(panel.evaluate().setWidth(420).setHeight(220), '💡 ¿Qué es FRC?')
+ 
 }
 
 /**
@@ -50,47 +45,24 @@ function procesarTriggers(comando) {
 
   var mensaje = '',
       errorB = false,
-      hdcId = SpreadsheetApp.getActiveSpreadsheet();      
+      hdcId = SpreadsheetApp.getActiveSpreadsheet().getId();
   
   try {
-  
-    if (comando == 'eliminar') {
     
-      // Identificar y eliminar todos los activadores ON_FORM_SUBMIT del usuario en hdc actual
+    ScriptApp.getProjectTriggers().filter(function(t){
       
-      ScriptApp.getUserTriggers(hdcId).filter(function(t){
-            
-        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
-            
-      }).map(function(t){    
-          
-        if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
-          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
-          
-      });
-              
-    }
-    
-    else { // diagnosticar
-    
-      // Identificar todos los activadores ON_FORM_SUBMIT asociados a FRC activados por el usuario en cualquier hdc
-    
-      ScriptApp.getProjectTriggers().filter(function(t){
-        
-        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
-        
-      }).map(function(t){    
+      return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
       
-          if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
-          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
-      });
-        
-    } 
-  
+    }).map(function(t){    
+    
+      if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
+      mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
+      
+    });
+    
     if (!mensaje) { mensaje = '---';}
-  
-  }
-  
+    
+  }    
   catch (e) {
     mensaje = e;
     errorB = true;}
@@ -104,7 +76,7 @@ function diagnosticar() {
   // Identifica los activadores activos
     
   var resultado,
-      mensaje = VERSION + '.\n Tus activadores FRC detectados en todas tus hojas de cálculo (ID / hdc):\n';
+      mensaje = VERSION + '.\n Tus activadores FRC detectados en esta hoja de cálculo (ID / hdc):\n';
 
   resultado = procesarTriggers('diagnosticar');
   
@@ -160,15 +132,15 @@ function restaurar() {
   }
 }
 
-function extenderFormato(filaModelo, filaRespuesta, reprocesar) {
+
+function extenderFormato(filaModelo, filaRespuesta, reprocesar, lastRow) {
 
   // Aplica el formato (+ altura + formato condicional) de la fila que se pasa como parámetro
   // a todas por debajo de ella (reprocesar = true) o solo a la última (reprocesar = false);
   // filaRespuesta contiene la correspondiente a la respuesta de formulario que se debe
-  // procesar o 0 si se trata de una aplicación manual.
+  // procesar o 0 si se trata de una aplicación manual
   
   var sheet = SpreadsheetApp.getActiveSheet();
-  var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
     
   // ¿Hay respuestas?
@@ -178,7 +150,7 @@ function extenderFormato(filaModelo, filaRespuesta, reprocesar) {
     if (reprocesar == true) {
       
       // Aplicamos sobre toda la hoja por debajo de "filaModelo"
-      // Si se trata de una respuesta previa modificada, mismo tratamiento.
+      // Si se trata de una respuesta previa modificada, mismo tratamiento
       
       // Formato
       sheet.getRange(filaModelo, 1, 1, lastColumn).copyFormatToRange(sheet, 1, lastColumn, filaModelo + 1, lastRow);
@@ -201,15 +173,17 @@ function extenderFormato(filaModelo, filaRespuesta, reprocesar) {
   }   
 }
 
-function extenderFormulas(filaModelo, filaRespuesta, reprocesar) {
+function extenderFormulas(filaModelo, filaRespuesta, reprocesar, lastRow) {
 
   // Copia las fórmulas presentes en la fila que se pasa como parámetro
   // a todas por debajo de ella (reprocesar = true) o solo a la última (reprocesar = false)
   // filaRespuesta contiene la correspondiente a la respuesta de formulario que se debe
-  // procesar o 0 si se trata de una aplicación manual.
+  // procesar o 0 si se trata de una aplicación manual
+  // La propagación de reglas de validación es automática en formularios, no obstante
+  // se mantiene proceso en FRC por si a) se reprocesa b) se ha detenido durante algunas respuestas
+  // Si no se desea extender formato se elimina vía código en esta función
   
   var sheet = SpreadsheetApp.getActiveSheet();
-  var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
     
   // ¿Hay respuestas?
@@ -226,7 +200,7 @@ function extenderFormulas(filaModelo, filaRespuesta, reprocesar) {
         if (reprocesar == true) {
           
           // Copiar en todas las filas por debajo
-          // Si se trata de una respuesta previa modificada, mismo tratamiento.
+          // Si se trata de una respuesta previa modificada, mismo tratamiento
           celdaFormula.copyTo(sheet.getRange(filaModelo + 1, col, lastRow - filaModelo, 1));
         }
         else {
@@ -239,7 +213,7 @@ function extenderFormulas(filaModelo, filaRespuesta, reprocesar) {
   }
 }
 
-function extenderValidacion(filaModelo, filaRespuesta, reprocesar, autovalidacion) {
+function extenderValidacion(filaModelo, filaRespuesta, reprocesar, autovalidacion, lastRow) {
 
   // Copia los ajustes de validación en las celdas de la fila que se pasa como parámetro
   // a todas por debajo de ella (reprocesar = true) o solo a la última (reprocesar = false)
@@ -250,7 +224,6 @@ function extenderValidacion(filaModelo, filaRespuesta, reprocesar, autovalidacio
   // además, es posible que se deba reaplicar a todas ellas
   
   var sheet = SpreadsheetApp.getActiveSheet();
-  var lastRow = sheet.getLastRow();
   var lastColumn = sheet.getLastColumn();
     
   // ¿Hay respuestas?
@@ -538,13 +511,25 @@ function actualizarPreferencias(preferencias) {
 }
 
 function nuevaRespuestaForm(e) {
+  
+  // console.log(e.range.getValues());
+  
+  // ¡Si se reciben varias respuestas cuasi-simultáneas .getLastRow()
+  // puede devolver un valor que tiene en cuenta todas ellas en cada instancia del manejador de evento!
+  // Los triggers son así :-/
+  
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  var filaRespuesta = e.range.getRow();   
+  var lastColumn = sheet.getLastColumn();
+  var props = PropertiesService.getDocumentProperties();
+  var filaModelo = +props.getProperty('fila');
 
   // Aquí está la fiesta...
   
   // Primero comprobemos si disponemos de los permisos necesarios 
   // Tomado de aquí https://developers.google.com/gsuite/add-ons/concepts/triggers#authorizing_installable_triggers
   var addonTitle = 'Form Response Control';
-  var props = PropertiesService.getDocumentProperties();
   var authInfo = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
 
   // Check if the actions of the trigger requires authorization that has not
@@ -581,33 +566,29 @@ function nuevaRespuestaForm(e) {
     // Todo ok, seguimos
     // Desencadenamos acciones en función de las preferencias guardadas
     
-    var sheet = SpreadsheetApp.getActiveSheet();
-    var lastRow = sheet.getLastRow();
-    var lastColumn = sheet.getLastColumn();
-    var filaModelo = +props.getProperty('fila');
-    var filaRespuesta = e.range.getRow();   
-    
     // ¿Aplicar tratamiento a todas las respuestas o solo la última?
     var reprocesar = JSON.parse(props.getProperty('reprocesar'));
    
     // ¿Aplicar formato?
-    if (props.getProperty('autoFormato') == 'true') {extenderFormato(filaModelo, filaRespuesta, reprocesar);}
+    if (props.getProperty('autoFormato') == 'true') {extenderFormato(filaModelo, filaRespuesta, reprocesar, lastRow);}
     
     // ¿Aplicar fórmulas?
-    if (props.getProperty('autoFormula') == 'true') {extenderFormulas(filaModelo, filaRespuesta, reprocesar);}
+    if (props.getProperty('autoFormula') == 'true') {extenderFormulas(filaModelo, filaRespuesta, reprocesar, lastRow);}
     
     // Gestionar propagación de reglas de validación (ver comentarios en función)
-    extenderValidacion(filaModelo, filaRespuesta, reprocesar, JSON.parse(props.getProperty('autoValidacion')));
-   
-    // ¿Última respuesta a la primera posición?
+    extenderValidacion(filaModelo, filaRespuesta, reprocesar, JSON.parse(props.getProperty('autoValidacion')), lastRow);
+
+    // console.log('Última: ' + lastRow + ' Respuesta ' + filaRespuesta); 
+
+    // ¿Última respuesta recibida a la primera posición?
     if (props.getProperty('autoInversion') == 'true') {
    
-      // mover respuesta a primera posición
-      if ((lastRow > filaModelo) && (filaRespuesta == lastRow)) {
-      
-        // Solo se mueve la fila si hay más de 1 respuesta y
-        // no se trata de una edición de respuesta previa vía formulario
-        var rango = sheet.getRange("A" + lastRow.toString() + ":" + lastRow.toString());
+      // mover respuesta recibida a primera posición
+      if (filaRespuesta > filaModelo) {
+
+        // Solo se mueve la fila si hay más de 1 respuesta
+        // Se utiliza como origen la fila de la respuesta en lugar de lastRow por si se trata de una edición
+        var rango = sheet.getRange("A" + filaRespuesta + ":" + filaRespuesta);
         sheet.moveRows(rango, filaModelo);
       }
     }
