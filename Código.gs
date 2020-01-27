@@ -6,12 +6,18 @@
  *
  */
  
-var VERSION = 'Versión: 2.1c (enero 2020)';
+var VERSION = 'Versión: 2.1d (enero 2020)';
+
+function onInstall(e) {
+  
+  // Otras cosas que se deben hacer siempre
+  onOpen(e);
+}
 
 function onOpen() {
 
   // Crear menú de la aplicación
-  SpreadsheetApp.getUi().createMenu('Form Response Control')
+  SpreadsheetApp.getUi().createAddonMenu()
     .addItem('✅ Configurar', 'configurar')
     .addItem('❔ Comprobar estado', 'comprobarEstado')
     .addSeparator()
@@ -22,7 +28,7 @@ function onOpen() {
     .addItem('️👓 Diagnosticar FRC', 'diagnosticar')
     .addItem('⚠️ Restaurar FRC', 'restaurar')
     .addSeparator()
-    .addItem('💡 Ayuda', 'acercaDe') 
+    .addItem('💡 Sobre FRC', 'acercaDe') 
     .addToUi();
 }
 
@@ -32,7 +38,6 @@ function acercaDe() {
   var panel = HtmlService.createTemplateFromFile('acercaDe');
   panel.version = VERSION;
   SpreadsheetApp.getUi().showModalDialog(panel.evaluate().setWidth(420).setHeight(220), '💡 ¿Qué es FRC?')
- 
 }
 
 /**
@@ -45,24 +50,47 @@ function procesarTriggers(comando) {
 
   var mensaje = '',
       errorB = false,
-      hdcId = SpreadsheetApp.getActiveSpreadsheet().getId();
+      hdcId = SpreadsheetApp.getActiveSpreadsheet();      
   
   try {
+  
+    if (comando == 'eliminar') {
     
-    ScriptApp.getProjectTriggers().filter(function(t){
+      // Identificar y eliminar todos los activadores ON_FORM_SUBMIT del usuario en hdc actual
       
-      return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
-      
-    }).map(function(t){    
+      ScriptApp.getUserTriggers(hdcId).filter(function(t){
+            
+        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
+            
+      }).map(function(t){    
+          
+        if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
+          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
+          
+      });
+              
+    }
     
-      if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
-      mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
-      
-    });
+    else { // diagnosticar
     
+      // Identificar todos los activadores ON_FORM_SUBMIT asociados a FRC activados por el usuario en cualquier hdc
+    
+      ScriptApp.getProjectTriggers().filter(function(t){
+        
+        return t.getEventType() ==  ScriptApp.EventType.ON_FORM_SUBMIT;    
+        
+      }).map(function(t){    
+      
+          if (comando == 'eliminar') {ScriptApp.deleteTrigger(t);}
+          mensaje += '(+) ' + t.getUniqueId() + ' / ' + (t.getTriggerSourceId() == hdcId.getId() ? 'hdc actual' : t.getTriggerSourceId()) + '\n';
+      });
+        
+    } 
+  
     if (!mensaje) { mensaje = '---';}
-    
-  }    
+  
+  }
+  
   catch (e) {
     mensaje = e;
     errorB = true;}
@@ -76,7 +104,7 @@ function diagnosticar() {
   // Identifica los activadores activos
     
   var resultado,
-      mensaje = VERSION + '.\n Tus activadores FRC detectados en esta hoja de cálculo (ID / hdc):\n';
+      mensaje = VERSION + '.\n Tus activadores FRC detectados en todas tus hojas de cálculo (ID / hdc):\n';
 
   resultado = procesarTriggers('diagnosticar');
   
@@ -131,7 +159,6 @@ function restaurar() {
     }
   }
 }
-
 
 function extenderFormato(filaModelo, filaRespuesta, reprocesar, lastRow) {
 
@@ -264,6 +291,7 @@ function extenderValidacion(filaModelo, filaRespuesta, reprocesar, autovalidacio
   }
 }  
 
+
 function formatoForzado() {
   
   // El operador "+" convierte la cadena a número
@@ -277,7 +305,7 @@ function formatoForzado() {
     // Mensaje de inicio de proceso.
     SpreadsheetApp.getActiveSpreadsheet().toast('Aplicando formato...');
     
-    extenderFormato(fila, 0, true);
+    extenderFormato(fila, 0, true, SpreadsheetApp.getActiveSheet().getLastRow());
     
     // Mensaje de fin de proceso
     SpreadsheetApp.getActiveSpreadsheet().toast('Formato aplicado.');
@@ -296,7 +324,7 @@ function formulasForzado() {
     // Mensaje de inicio de proceso.
     SpreadsheetApp.getActiveSpreadsheet().toast('Copiando fórmulas...');
    
-    extenderFormulas(fila, 0, true);
+    extenderFormulas(fila, 0, true, SpreadsheetApp.getActiveSheet().getLastRow());
     
     // Mensaje de fin de proceso
     SpreadsheetApp.getActiveSpreadsheet().toast('Fórmulas copiadas.');
@@ -315,7 +343,7 @@ function validacionForzado() {
      // Mensaje de inicio de proceso.
     SpreadsheetApp.getActiveSpreadsheet().toast('Aplicando validación de datos...');
    
-    extenderValidacion(fila, 0, true);}
+    extenderValidacion(fila, 0, true, true, SpreadsheetApp.getActiveSheet().getLastRow());}
     
     // Mensaje de fin de proceso
     SpreadsheetApp.getActiveSpreadsheet().toast('Validación aplicada.');
