@@ -6,7 +6,7 @@
  *
  */
  
-var VERSION = 'Versión: 2.1d (enero 2020)';
+var VERSION = 'Versión: 2.1e (marzo 2020)';
 
 function onInstall(e) {
   
@@ -397,7 +397,6 @@ function modificarEstadoFrc(comando) {
           
           // Vamos con ello
           // Interceptar evento de recepción de formulario
-          var triggers = ScriptApp.getProjectTriggers();  
           try {
             
             // Instalamos el manejador de onFormSubmit()
@@ -409,10 +408,11 @@ function modificarEstadoFrc(comando) {
             // Anotamos qué usuario ha instalado el trigger para tratar de evitar duplicidades
             // ¡No es posible controlar la presencia de triggers instalados manualmente por otros usuarios!
             
+            PropertiesService.getDocumentProperties().setProperty('triggerDe',Session.getEffectiveUser());  
+            
             // >>>> Fin de sección de código en exclusión mutua (activado OK) <<<<
             semaforo.releaseLock();      
             
-            PropertiesService.getDocumentProperties().setProperty('triggerDe',Session.getEffectiveUser());  
             SpreadsheetApp.getUi().alert('🚀 Form Response Control está activado.');
             estado = 'activado';
             // >>>> Fin de sección de código en exclusión mutua (activado OK) <<<<
@@ -446,7 +446,7 @@ function modificarEstadoFrc(comando) {
           // Si lo ha instalado el usuario actual, localizar
           if (triggerDe == Session.getEffectiveUser()) {
             var triggerActual = null;
-            var triggers = ScriptApp.getProjectTriggers();
+            var triggers = ScriptApp.getUserTriggers(SpreadsheetApp.getActiveSpreadsheet());
             for (var i = 0; i < triggers.length; i++) {
               if (triggers[i].getEventType() == ScriptApp.EventType.ON_FORM_SUBMIT) {
                 triggerActual = triggers[i];
